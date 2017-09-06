@@ -31,7 +31,10 @@ sess = tf.Session()
 from keras import backend as K
 K.set_session(sess)
 
+
 import nibabel as nib # for reading nifTi data file 
+from unet import UNet, dice_coef_loss, dice_coef
+
 
 # define const variable
 IMG_DTYPE = np.float32
@@ -131,7 +134,36 @@ def check_binaryImage(seg_vol):
 # helper function the full path of a list of files in a directory
 def listdir_fullpath(dn):
     return [os.path.join(dn,fn) for fn in os.listdir(dn)]
+            
+def orient_dicom(dataobj):
+    """ 
+    based on the affine transform of the header convert the 
+    array to appropriate DICOM orientation
+    Argument:
+        nifti image data object from nibabel
+    
+    Output:
+        3D numpy array of DICOM orientation
+    """
+    M = dataobj.affine[:3,:3]
+    x_flag = M[0,0]
+    y_flag = M[1,1]
+    z_flag = M[2,2]
+    # DICOM use (column,row) rather than the conventional matrix orientation
+    tmp = np.transpose(dataobj.get_data(),(1,0,2))
+    if x_flag > 0:
+        tmp = np.fliplr(tmp)
+    
+    if y_flag > 0:
+        tmp = np.flipud(tmp)
+    
+    if z_flag > 0:
+        tmp = tmp[:,:,::-1] # reverse its dimension
 
+    return tmp
+        
+        
+    
 #%%
 preprocess_data_train=False
 preprocess_data_test=False
@@ -268,7 +300,7 @@ y_test = np.load(fn)
 
 # obtaining the testing set 
 n=len(test_img)
-for ii in range(1,n):
+for ii in range(1,10):
     fn = test_img[ii]
     tmp = np.load(fn)
     x_test = np.concatenate( (x_test,tmp),axis=0)
@@ -281,16 +313,19 @@ for ii in range(1,n):
 #%%
 # setup the ImageDataGenerator
 seed = 0
-data_gen_args = dict(
-        rotation_range=40,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True,
-        elastic_transform=True,
-        fill_mode='nearest',
-        data_format="channels_last")
+#data_gen_args = dict(
+#        rotation_range=40,
+#        width_shift_range=0.1,
+#        height_shift_range=0.1,
+#        shear_range=0.2,
+#        zoom_range=0.2,
+#        horizontal_flip=True,
+#        elastic_transform=True,
+#        fill_mode='nearest',
+#        data_format="channels_last")
+
+data_gen_args=dict(data_format="channels_last")
+
 
 image_datagen = ImageDataGenerator(**data_gen_args)
 mask_datagen = ImageDataGenerator(**data_gen_args)
@@ -301,10 +336,10 @@ data_gen = (image_datagen,mask_datagen)
 # make the test generator
 testimg_datagen=ImageDataGenerator(data_format="channels_last")
 testseg_datagen=ImageDataGenerator(data_format="channels_last")
-testimg_datagen.fit(x_test, augment=False)
-testseg_datagen.fit(y_test, augment=False)
-testimg_generator = testimg_datagen.flow(x_test)
-testseg_generator = testseg_datagen.flow(y_test)
+testimg_datagen.fit(x_test, augment=False,seed=seed)
+testseg_datagen.fit(y_test, augment=False,seed=seed)
+testimg_generator = testimg_datagen.flow(x_test,seed=seed)
+testseg_generator = testseg_datagen.flow(y_test,seed=seed)
 test_generator = zip(testimg_generator,testseg_generator)
 
 batchgen = batch_generator(data_gen,seed, data_list,batch_size=4)
@@ -315,17 +350,25 @@ nx = x_test.shape[1]
 ny = x_test.shape[2]
 n_channels = x_test.shape[3]
 
-model = UNet( input_shape=(nx,ny,n_channels) )
-model.compile(optimizer=Adam(lr=1e-3), loss=dice_coef_loss, metrics=[dice_coef])
+model = UNet( input_shape=(nx,ny,n_channels))
+model.compile(optimizer=Adam(lr=1e-3,decay=0.9), loss=dice_coef_loss, metrics=[dice_coef])
 
 
 #%%
-num_epochs=20
+num_epochs=10
 hist1 = model.fit_generator(batchgen,steps_per_epoch=4000,epochs=num_epochs,
                                validation_data=test_generator,
                                validation_steps=500,
                                verbose=1)
 
 #%%
-modelfn ='unet_liverseg_model1'
+model_fn ='unet_liverseg_model1_noaugmentation_090117_cont_train_after_epoch10'
 model.save(model_fn)
+
+#%%
+# visualize the prediction 
+
+y_pred = model.predict(x_test,batch_size=32)
+#%%
+for s in range(0,1855,50):
+    imshow(x_test[s,:,:,0],y_pred[s,:,:,0],y_test[s,:,:,0])
