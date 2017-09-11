@@ -37,8 +37,6 @@ IMAGE_SIZE = 256
 #PAD_SIZE = 48
 
 
-# In[36]:
-
 
 #%%
 def imshow(*args,**kwargs):
@@ -179,18 +177,15 @@ def save_img_slice(datavol,file_prefix):
 #    imshow(img_data[:,:,s],seg_data[:,:,s])
 
 
-# In[37]:
-
-
 #%%
 preprocess_data = True
 slice_direction = 'axial' # axial, sagittal, coronal 
 
 if preprocess_data:
-    dataDir='/data/nas/'
+    dataDir=dataDir='D:/liverseg_training/training_data_liverseg/'
     # data is too big to fit in memory, need to write it out to directoy
-    train_img_dir = '/data/train_'+ slice_direction +'/images/'
-    train_seg_dir = '/data/train_'+ slice_direction +'/segmentations/'
+    train_img_dir = 'D:/liverseg_training/training_'+ slice_direction +'/images/'
+    train_seg_dir = 'D:/liverseg_training/training_'+ slice_direction +'/segmentations/'
     Nvol=131
     for s in range(0,Nvol):
         ii = s
@@ -228,8 +223,6 @@ if preprocess_data:
         save_img_slice(seg_data,seg_prefix)
 # end preprocess
 
-
-# In[ ]:
 
 
 

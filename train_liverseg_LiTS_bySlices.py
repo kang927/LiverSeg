@@ -1,8 +1,4 @@
-
 # coding: utf-8
-
-# In[1]:
-
 
 """
 Created on Sat Aug 26 11:36:21 2017
@@ -31,7 +27,7 @@ from scipy.misc import imresize,imsave
 from keras import initializers 
 
 import nibabel as nib # for reading nifTi data file 
-from unet import UNet, dice_coef_loss, dice_coef
+from dilatedCNN import dilatedCNN, dice_coef_loss, dice_coef, jacc_dist
 
 # for regular expression
 import re
@@ -43,15 +39,13 @@ from natsort import natsorted
 from random import shuffle
 import random
 
-import tensorflow as tf
-from keras.backend.tensorflow_backend import set_session
-config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.8
-config.gpu_options.visible_device_list = "0"
-set_session(tf.Session(config=config))
+#import tensorflow as tf
+#from keras.backend.tensorflow_backend import set_session
+#config = tf.ConfigProto()
+#config.gpu_options.per_process_gpu_memory_fraction = 0.8
+#config.gpu_options.visible_device_list = "0"
+#set_session(tf.Session(config=config))
 
-
-# In[2]:
 
 
 #%% setup utility functions 
@@ -203,8 +197,8 @@ def check_img_seg_pair(img_list,seg_list):
 # In[6]:
 
 
-train_img_dir = '/data/train_axial/images/'
-train_seg_dir = '/data/train_axial/segmentations/'
+train_img_dir = 'D:/liverseg_training/training_axial/images'
+train_seg_dir = 'D:/liverseg_training/training_axial/segmentations'
 list_img = listdir_fullpath(train_img_dir)
 list_seg = listdir_fullpath(train_seg_dir)
 
@@ -230,16 +224,14 @@ shuffle(tmp)
 train_img,train_seg = zip(*tmp)
 train_list = (train_img,train_seg)
 
-
-# In[7]:
-
+#%%
 
 # testing for the generator
 #ct = 0
 #train_generator = batch_generator(train_list, 500)
 #test_generator = batch_generator(test_list,500)
 #for x_test, y_test in train_generator:
-#    print x_test.shape
+#    print(x_test.shape)
 #    imshow(x_test[5,:,:,0],y_test[5,:,:,0])
 #    ct = ct+1
 #    if ct>10:
@@ -247,8 +239,6 @@ train_list = (train_img,train_seg)
 #tmp = next(test_generator)
 #print(hasattr(tmp, '__len__'))
 
-
-# In[8]:
 
 
 #%% initialize the model and training parameters
@@ -267,32 +257,16 @@ train_generator = batch_generator(train_list, batch_size)
 test_generator = batch_generator(test_list, batch_size)
 
 
-# In[9]:
 
+#%%
+model = dilatedCNN( input_shape=(nx,ny,n_channels), l2_lambda=0.0004,dropP=0.5)
 
-# setup the model 
-get_ipython().magic(u'run unet_noisy.py')
-
-
-# In[10]:
-
-
-stddev=0.01
-model = UNet( input_shape=(nx,ny,n_channels),stddev=stddev)
-
-
-# In[11]:
-
-
-# setup learning parameters and metric for optimization 
-model.compile(optimizer=Adam(lr=1e-3), loss=jacc_dist, metrics=[dice_coef])
-
-
-# In[ ]:
+#%% setup learning parameters and metric for optimization 
+model.compile(optimizer=Adam(lr=1e-5), loss=jacc_dist, metrics=[dice_coef])
 
 
 #%% start training
-num_epochs=50
+num_epochs=20
 n_per_epoch = np.round(n_train/batch_size)
 n_test_steps = np.round(n_test/batch_size)
 hist1 = model.fit_generator(train_generator,steps_per_epoch=n_per_epoch,epochs=num_epochs,
@@ -301,16 +275,9 @@ hist1 = model.fit_generator(train_generator,steps_per_epoch=n_per_epoch,epochs=n
                                verbose=1)
 
 
-
-# In[ ]:
-
-
 #%%
-model_fn ='/src/LiverSeg/unet_liverseg_model_kernel6'
+model_fn ='liverseg_model_dilatedCNN.hdf5'
 model.save(model_fn)
-
-
-# In[ ]:
 
 
 
