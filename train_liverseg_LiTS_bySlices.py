@@ -259,7 +259,7 @@ test_generator = batch_generator(test_list, batch_size)
 
 
 #%%
-model = dilatedCNN( input_shape=(nx,ny,n_channels), l2_lambda=0.0004,dropP=0.5)
+model = dilatedCNN( input_shape=(nx,ny,n_channels), l2_lambda=0.001,dropP=0.5)
 
 #%% setup learning parameters and metric for optimization 
 model.compile(optimizer=Adam(lr=1e-5), loss=jacc_dist, metrics=[dice_coef])
@@ -276,7 +276,7 @@ hist1 = model.fit_generator(train_generator,steps_per_epoch=n_per_epoch,epochs=n
 
 
 #%%
-model_fn ='liverseg_model_dilatedCNN.hdf5'
+model_fn ='liverseg_model2_dilatedCNN_v3091117.hdf5'
 model.save(model_fn)
 
 
